@@ -1,0 +1,5 @@
+-   id: cfn-nag
+    name: CloudFormation Validator
+    entry: cfn_nag_scan -i
+    language: ruby
+    files: \.(json|yaml|yml)$
