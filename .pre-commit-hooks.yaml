@@ -1,5 +1,5 @@
 -   id: cfn-nag
-    name: CloudFormation Validator
+    name: stelligent CFN_NAG
     entry: cfn_nag_scan -i
     language: ruby
     files: \.(json|yaml|yml)$
