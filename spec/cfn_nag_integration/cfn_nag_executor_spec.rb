@@ -4,6 +4,10 @@ require 'cfn-nag/cfn_nag_logging'
 require 'cfn-nag/cfn_nag_executor'
 
 describe CfnNagExecutor do
+  # Method of suppressing stderr and stdout was found on StackOverflow here:
+  # https://stackoverflow.com/a/22777806
+  original_stderr = nil
+  original_stdout = nil
 
   before(:all) do
     CfnNagLogging.configure_logging(debug: false)
@@ -14,8 +18,21 @@ describe CfnNagExecutor do
       print_suppression: false,
       rule_directory: nil,
       template_pattern: '..*\.json|..*\.yaml|..*\.yml|..*\.template',
-      output_format: 'json'
+      output_format: 'json',
+      rule_repository: []
     }
+
+    original_stderr = $stderr  # capture previous value of $stderr
+    original_stdout = $stdout  # capture previous value of $stdout
+    $stderr = StringIO.new     # assign a string buffer to $stderr
+    $stdout = StringIO.new     # assign a string buffer to $stdout
+    # $stderr.string             # return the contents of the string buffer if needed
+    # $stdout.string             # return the contents of the string buffer if needed
+  end
+
+  after(:all) do
+    $stderr = original_stderr  # restore $stderr to its previous value
+    $stdout = original_stdout  # restore $stdout to its previous value
   end
 
   context 'single file cfn_nag with fail on warnings' do
@@ -72,6 +89,38 @@ describe CfnNagExecutor do
       result = cfn_nag_executor.scan(options_type: 'file')
 
       expect(result).to eq 0
+    end
+  end
+
+  context 'single UTF-8 file cfn_nag' do
+    test_file = 'spec/test_templates/yaml/template_with_non-US-ASCII_characters.yml'
+
+    it 'returns a successful zero exit code when read with UTF-8 encoding' do
+      expect(Options).to receive(:file_options).and_return(@default_cli_options)
+
+      cfn_nag_executor = CfnNagExecutor.new
+      expect(cfn_nag_executor).to receive(:argf_read).and_return(IO.read(test_file, encoding: Encoding::UTF_8))
+      expect(cfn_nag_executor).to receive(:argf_close).and_return(nil)
+      expect(cfn_nag_executor).to receive(:argf_finished?).and_return(false, true)
+      expect(cfn_nag_executor).to receive(:argf_filename).and_return(test_file)
+
+      result = cfn_nag_executor.scan(options_type: 'file')
+
+      expect(result).to eq 0
+    end
+
+    it 'returns a non-zero exit code when read with US-ASCII encoding' do
+      expect(Options).to receive(:file_options).and_return(@default_cli_options)
+
+      cfn_nag_executor = CfnNagExecutor.new
+      expect(cfn_nag_executor).to receive(:argf_read).and_return(IO.read(test_file, encoding: Encoding::US_ASCII))
+      expect(cfn_nag_executor).to receive(:argf_close).and_return(nil)
+      expect(cfn_nag_executor).to receive(:argf_finished?).and_return(false, true)
+      expect(cfn_nag_executor).to receive(:argf_filename).and_return(test_file)
+
+      result = cfn_nag_executor.scan(options_type: 'file')
+
+      expect(result).to eq 1
     end
   end
 

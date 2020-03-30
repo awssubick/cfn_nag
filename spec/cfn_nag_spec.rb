@@ -32,7 +32,7 @@ describe CfnNag do
             input_path: test_template_path('json/s3_bucket_policy/s3_bucket_with_wildcards.json'),
             output_format: 'colortxt'
           )
-        end.to output(/\[0;31;49m/).to_stdout
+        end.to output(/\e\[31m/).to_stdout
       end
 
       # \e[0;33;49m is the ANSI escape sequence for yellow
@@ -42,7 +42,7 @@ describe CfnNag do
             input_path: test_template_path('yaml/security_group/sg_with_suppression.yml'),
             output_format: 'colortxt'
           )
-        end.to output(/\[0;33;49m/).to_stdout
+        end.to output(/\e\[33m/).to_stdout
       end
     end
 
@@ -63,7 +63,7 @@ describe CfnNag do
             input_path: test_template_path('json/s3_bucket_policy/s3_bucket_with_wildcards.json'),
             output_format: 'txt'
           )
-        end.to_not output(/\[0;31;49m/).to_stdout
+        end.to_not output(/\e\[31m/).to_stdout
       end
 
       # \e[0;33;49m is the ANSI escape sequence for yellow
@@ -73,7 +73,7 @@ describe CfnNag do
             input_path: test_template_path('yaml/security_group/sg_with_suppression.yml'),
             output_format: 'txt'
           )
-        end.to_not output(/\[0;33;49m/).to_stdout
+        end.to_not output(/\e\[33m/).to_stdout
       end
     end
   end
@@ -96,7 +96,7 @@ describe CfnNag do
                 Violation.new(id: 'FATAL',
                               type: Violation::FAILING_VIOLATION,
                               message: 'Illegal cfn - no Resources',
-                              logical_resource_ids: nil)
+                              logical_resource_ids: [])
               ]
             }
           }
@@ -123,7 +123,7 @@ describe CfnNag do
                 Violation.new(id: 'FATAL',
                               type: Violation::FAILING_VIOLATION,
                               message: 'Illegal cfn - no Resources',
-                              logical_resource_ids: nil)
+                              logical_resource_ids: [])
               ]
             }
           }
@@ -161,9 +161,22 @@ describe CfnNag do
         rule_registry = RuleRegistry.new
 
         (1..100).each do |num|
-          rule_registry.definition(id: "F#{num}",
-                                   type: Violation::FAILING_VIOLATION,
-                                   message: "fakeo#{num}")
+          rule_klass = Object.const_set("RuleF#{num}", Class.new)
+          rule_klass.class_eval %Q{
+            def rule_text
+              "fakeo#{num}"
+            end
+
+            def rule_type
+              Violation::FAILING_VIOLATION
+            end
+
+            def rule_id
+              "F#{num}"
+            end
+          }
+
+          rule_registry.definition(rule_klass)
         end
 
         @cfn_nag = CfnNag.new(config: CfnNagConfig.new(profile_definition: "F16\n"))

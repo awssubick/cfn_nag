@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'trollop'
+require 'optimist'
 
 # rubocop:disable Metrics/ClassLength
 class Options
@@ -29,7 +29,7 @@ class Options
     custom_rule_exceptions_message = @custom_rule_exceptions_message
     version = @version
 
-    Trollop.options do
+    Optimist.options do
       usage options_message
       version version
 
@@ -68,6 +68,11 @@ class Options
           type: :string,
           required: false,
           default: nil
+      opt :condition_values_path,
+          'Path to a JSON file to pull Condition values from',
+          type: :string,
+          required: false,
+          default: nil
       opt :isolate_custom_rule_exceptions,
           custom_rule_exceptions_message,
           type: :boolean,
@@ -82,6 +87,10 @@ class Options
           'Format of results: [txt, json, colortxt]',
           type: :string,
           default: 'colortxt'
+      opt :rule_repository,
+          'Path(s) to a rule repository to include in rule discovery',
+          type: :strings,
+          required: false
     end
   end
 
@@ -97,7 +106,7 @@ class Options
     custom_rule_exceptions_message = @custom_rule_exceptions_message
     version = @version
 
-    Trollop.options do
+    Optimist.options do
       version version
       opt :input_path,
           input_path_message,
@@ -132,6 +141,11 @@ class Options
           type: :string,
           required: false,
           default: nil
+      opt :condition_values_path,
+          'Path to a JSON file to pull Condition values from',
+          type: :string,
+          required: false,
+          default: nil
       opt :allow_suppression,
           'Allow using Metadata to suppress violations',
           type: :boolean,
@@ -157,6 +171,10 @@ class Options
           type: :boolean,
           required: false,
           default: false
+      opt :rule_repository,
+          'Path(s)s to rule repository to include in rule discovery',
+          type: :strings,
+          required: false
     end
   end
   # rubocop:enable Metrics/BlockLength
