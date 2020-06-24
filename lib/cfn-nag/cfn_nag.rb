@@ -87,6 +87,7 @@ class CfnNag
                                       parameter_values_string,
                                       true,
                                       condition_values_string
+      CustomRuleLoader.rule_arguments = @config.rule_arguments
       violations += @config.custom_rule_loader.execute_custom_rules(
         cfn_model,
         @config.custom_rule_loader.rule_definitions
@@ -101,7 +102,12 @@ class CfnNag
       violations << fatal_violation(error)
     end
 
+    violations = prune_fatal_violations(violations) if @config.ignore_fatal
     audit_result(violations)
+  end
+
+  def prune_fatal_violations(violations)
+    violations.reject { |violation| violation.type == Violation::FAILING_VIOLATION }
   end
 
   def render_results(aggregate_results:,

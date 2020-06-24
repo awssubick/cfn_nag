@@ -14,7 +14,7 @@ Roughly speaking, it will look for:
 * Encryption that isn't enabled
 * Password literals
 
-For more background on the tool, please see:
+For more background on the tool, please see this post at Stelligent's blog:
 
 [Finding Security Problems Early in the Development Process of a CloudFormation Template with "cfn-nag"](https://stelligent.com/2016/04/07/finding-security-problems-early-in-the-development-process-of-a-cloudformation-template-with-cfn-nag/)
 
@@ -41,7 +41,7 @@ To run `cfn_nag` as an action in CodePipeline, you can deploy via the [AWS Serve
 
 # Usage
 
-Pretty simple to execute:
+To execute:
 
 ```bash
 cfn_nag_scan --input-path <path to cloudformation json>
@@ -77,20 +77,20 @@ A Dockerfile is provided for convenience. It is published on DockerHub as `stell
 You can also build it locally.
 
 ```bash
-docker build -t cfn_nag .
+docker build -t stelligent/cfn_nag .
 ```
 
 You can mount a local directory containing templates into the Docker container and then call cfn_nag in the container. This example uses the test templates used in unit testing cfn_nag:
 
 ```bash
-$ docker run -v `pwd`/spec/test_templates:/templates -t cfn_nag /templates/json/efs/filesystem_with_encryption.json
+$ docker run -v `pwd`/spec/test_templates:/templates -t stelligent/cfn_nag /templates/json/efs/filesystem_with_encryption.json
 {
   "failure_count": 0,
   "violations": [
 
   ]
 }
-$ docker run -v `pwd`/spec/test_templates:/templates -t cfn_nag /templates/json/efs/filesystem_with_no_encryption.json
+$ docker run -v `pwd`/spec/test_templates:/templates -t stelligent/cfn_nag /templates/json/efs/filesystem_with_no_encryption.json
 {
   "failure_count": 1,
   "violations": [
@@ -105,6 +105,20 @@ $ docker run -v `pwd`/spec/test_templates:/templates -t cfn_nag /templates/json/
   ]
 }
 ```
+
+## Running as a GitHub Action
+
+`cfn_nag_scan` can be run as part of a GitHub Workflow to evaluate code during continuous integration pipelines.  
+
+In your GitHub Workflow file, create a step which uses the cfn_nag Action:
+```
+      - name: Simple test
+        uses: stelligent/cfn_nag@master
+        with:
+          input_path: tests
+```
+
+More information about the [GitHub Action can be found here](github-action/README.md).
 
 ## Results Filtering
 
@@ -269,6 +283,50 @@ the same JSON across all the templates).
 
 If the JSON is malformed or doesn't meet the above specification, then parsing will fail with a FATAL violation.
 
+# Mappings
+
+Prior to 0.5.55, calls to Fn::FindInMap were effectively ignored.  The underlying model would
+leave them be, and so they would appear as Hash values to rules.  For example: `{ "Fn::FindInMap" => [map1, key1, key2]}`
+
+Starting in 0.5.55, the model will attempt to compute the value for a call to FindInMap and present that value to the 
+rules.  This evaluation supports keys that are:
+* static text
+* references to parameters (with parameter substitution)
+* references to AWS pseudofunctions (see next section)
+* nested maps
+
+If the evaluation logic can't figure out the value for a key, it will default to the old behavior of returning the
+Hash for the whole expression.
+
+## AWS Pseudofunctions
+
+Also prior to 0.5.55, calls to AWS pseudofunctions were effectively ignored.  The underlying model would
+leave them be, and so they would appear as Hash values to rules.  For example: `{"Ref"=>"AWS::Region"}`.
+A common use case is to organize mappings by region, so pseudofunction evaluation is important to better supporting
+map evaluation.
+
+Starting in 0.5.55, the model will present the following AWS pseudofunctions to rules with the default values:
+
+```
+'AWS::URLSuffix' => 'amazonaws.com',
+'AWS::Partition' => 'aws',
+'AWS::NotificationARNs' => '',
+'AWS::AccountId' => '111111111111',
+'AWS::Region' => 'us-east-1',
+'AWS::StackId' => 'arn:aws:cloudformation:us-east-1:111111111111:stack/stackname/51af3dc0-da77-11e4-872e-1234567db123',
+'AWS::StackName' => 'stackname'
+```
+
+Additionally, the end user can override the value supplied via the traditional parameter substitution mechanism.  For example:
+
+```
+{
+  "Parameters": {
+    "AWS::Region": eu-west-1"
+  }
+}
+```
+
 # Controlling the Behavior of Conditions
 
 Up until version 0.4.66 of cfn_nag, the underlying model did not do any processing of Fn::If within a template.  This meant that if a property had a conditional value, it was up to the rule to parse the Fn::If.  Given that an Fn::If could appear just about anywhere, it created a whack-a-mole situation for rule developers.  At best, the rule logic could ignore values that were Hash presuming the value wasn't a Hash in the first place.
@@ -307,6 +365,19 @@ The format of the JSON is a a dictionary with each key/value pair mapping to the
 }
 ```
 
+# Stelligent Policy Complexity Metrics (spcm)
+
+The basis for SPCM is described in the blog post: https://stelligent.com/2020/03/27/thought-experiment-proposed-complexity-metric-for-iam-policy-documents/
+
+Starting in version 0.6.0 of cfn_nag:
+* `spcm_scan` can scan a directory of CloudFormation templates (like cfn_nag_scan) and generate a report with the SPCM
+   metrics in either JSON or HTML format
+* A rule is added (to cfn_nag) to warn on an IAM::Policy or IAM::Role with a SPCM score of >= 50 (default)
+* The rule threshold can be controlled via the command line: `cfn_nag_scan --rule-arguments spcm_threshold:100`
+* Custom rule developers can now develop rules to accept end user values for settings via the same `--rule-arguments` mechanism.  
+  The Rule object only needs to declare an `attr_accessor`, e.g. `attr_accessor :spcm_threshold` and cfn_nag
+  will take care of the details to inject values from the `--rule-arguments`
+   
 # Distribution of Custom Rules
 
 The release of 0.5.x includes some major changes in how custom rules (can) be distributed and loaded.  Before this release,

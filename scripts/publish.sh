@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 set -o pipefail
-export minor_version="0.5"
+export minor_version="0.6"
 
 set +x
 if [[ -z ${rubygems_api_key} ]];
@@ -52,7 +52,7 @@ gem build cfn-nag.gemspec
 gem push cfn-nag-${new_version}.gem
 
 # publish docker image to DockerHub, https://hub.docker.com/r/stelligent/cfn_nag
-docker build -t $docker_org/cfn_nag:${new_version} .
+docker build -t $docker_org/cfn_nag:${new_version} . --build-arg version=${new_version} -f Dockerfile.local
 set +x
 echo $docker_password | docker login -u $docker_user --password-stdin
 set -x

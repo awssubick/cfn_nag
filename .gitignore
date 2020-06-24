@@ -1,5 +1,4 @@
 /*.gem
-/Gemfile.lock
 /coverage
 /spec/aws_sample_templates/
 *.zip
@@ -14,3 +13,6 @@ update_cellar.pl
 .vscode-upload.json
 IotPolicy-test.json
 test-cfn-model.rb
+.idea
+.DS_Store
+tmp
